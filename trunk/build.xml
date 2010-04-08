@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<project 
+		name="mdx4j" 
+		default="assembly" 
+		basedir=".">
+
+	<property name="app.version" value="1.0"/>
+	<property name="src" value="src/main/java"/>
+	<property name="test.src" value="src/test/java"/>
+	<property name="lib.runtime" value="lib/runtime"/>
+	<property name="lib.test" value="lib/test" />
+	<property name="dist" value="dist"/>
+	<property name="staging.dir" value="staging"/>
+	<property name="reports" value="${dist}/reports"/>
+	<property name="build.base" value="build"/>
+	<property name="build.runtime" value="${build.base}/runtime"/>
+	<property name="build.tests" value="${build.base}/test"/>
+
+	<!-- *******************************************************************************
+	     ************    Classpaths   ************************************************** --> 
+
+	<path id="classpath.compile.runtime"
+			description="All the compile-time dependencies">
+		<fileset dir="${lib.runtime}">
+			<include name="*.jar"/>
+		</fileset>
+	</path>
+	
+	<path id="classpath.compile.tests"
+			description="All the compile-time dependencies">
+		<path refid="classpath.compile.runtime"></path>
+		<pathelement location="${build.runtime}"/>
+		<fileset dir="${lib.test}">
+			<include name="*.jar"/>
+		</fileset>
+	</path>
+	
+	<path id="classpath.test"
+			description="All the test dependencies">
+		<pathelement location="${build.tests}"/>
+		<path refid="classpath.compile.tests"/>
+	</path>
+
+	<!-- *******************************************************************************
+	     ************    Build targets   *********************************************** --> 
+
+	<target name="clean" description="Cleans the build system.">
+		<delete dir="${build.base}" includeemptydirs="true" />
+		<delete dir="${dist}" includeemptydirs="true" />
+		<delete dir="${staging.dir}" includeemptydirs="true" />
+	</target>
+	
+	<target name="init">
+		<echo message="Building mdx4j version: ${project.version}"/>
+		<mkdir dir="${build.base}"/>
+		<mkdir dir="${build.tests}"/>
+		<mkdir dir="${build.runtime}"/>
+		<mkdir dir="${dist}"/>
+		<mkdir dir="${staging.dir}"/>
+	</target>
+
+	<target name="compile" depends="init">
+		<javac 
+				srcdir="${src}" 
+				destdir="${build.runtime}" 
+				classpathref="classpath.compile.runtime" 
+				debug="true"
+				compiler="modern"
+				target="1.5"/>
+	</target>
+	
+	<target name="compile-tests" depends="compile">
+		<javac 
+				srcdir="${test.src}" 
+				destdir="${build.tests}"
+				classpathref="classpath.compile.tests"
+				debug="true"
+				compiler="modern"
+				target="1.5"/>
+	</target>
+
+	<!-- *******************************************************************************
+	     ************    Testing and code quality targets   **************************** --> 
+
+	<target name="test" depends="compile-tests"
+			description="Runs the entire test suite.">
+		<property name="reports.junit" value="${reports}/junit"/>
+		<mkdir dir="${reports.junit}/xml"/>
+		<junit 
+				printsummary="on" 
+				showoutput="no"
+				maxmemory="1024m">
+			<classpath>
+				<path refid="classpath.test"/>
+			</classpath>
+			<batchtest todir="${reports.junit}/xml">
+				<fileset dir="${test.src}">
+				    <include name="**/*.java"/>
+				</fileset>
+			</batchtest>
+	   	   <formatter type="xml"/>
+	   </junit>
+
+		<!-- Generate HTML report -->
+		<junitreport todir="${reports.junit}">
+		  <fileset dir="${reports.junit}/xml">
+		    <include name="*.xml" />
+		  </fileset>
+		  <report todir="${reports.junit}" />
+		</junitreport>
+	</target>
+
+	<!-- *******************************************************************************
+	     ************    Assembly and distribution targets   *************************** --> 
+
+	<target 
+			name="jar"
+			description="Creates the JAR distributable"
+			depends="compile-tests">
+		<jar jarfile="${dist}/mdx4j-${app.version}.jar" basedir="${build.runtime}" includes="**/*" />
+		<jar jarfile="${dist}/mdx4j-${app.version}-tests.jar" basedir="${build.tests}" includes="**/*"/>
+		<jar jarfile="${dist}/mdx4j-${app.version}-sources.jar" basedir="${src}" includes="**/*"/>
+	</target>
+
+	<target name="assembly" depends="test, jar">
+
+		<!-- Copy all dependency Jar files -->
+		<copy todir="${staging.dir}/lib">
+			<fileset dir="${lib.runtime}">
+			   <include name="*.jar" />
+			</fileset>
+		</copy>
+		
+		<!-- Copy all mdx4j Jar file -->
+		<copy todir="${staging.dir}" file="${dist}/mdx4j-${app.version}.jar"/>
+		<copy todir="${staging.dir}" file="${dist}/mdx4j-${app.version}-tests.jar"/>
+		<copy todir="${staging.dir}" file="${dist}/mdx4j-${app.version}-sources.jar"/>
+		
+		<!-- Copy legal files -->
+		<copy todir="${staging.dir}">
+			<fileset dir="">
+			   <include name="LICENSE.html" />
+			</fileset>
+		</copy>
+		
+		<!-- Wrap it up! -->
+		<zip destfile="${dist}/mdx4j-${app.version}.zip">
+			<fileset dir="${staging.dir}">
+				<include name="**/*"/>
+			</fileset>
+		</zip>
+	</target>
+</project>
